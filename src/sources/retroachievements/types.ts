@@ -14,8 +14,8 @@ export interface RetroachievementsGameProgress {
   NumAwarded: number;
   NumAwardedHardcore: number;
   MostRecentAwardedDate: string;
-  HighestAwardKind: string;
-  HighestAwardDate: string;
+  HighestAwardKind: string | null;
+  HighestAwardDate: string | null;
 }
 
 export interface RetroachievementsNormalizedGame {
@@ -66,7 +66,7 @@ export interface RetroachievementsUnlocksByDateRange {
   BadgeName: string;
   Points: number;
   TrueRatio: number;
-  Type: string;
+  Type: string | null;
   Author: string;
   AuthorULID: string;
   GameTitle: string;

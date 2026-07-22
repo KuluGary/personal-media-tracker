@@ -14,7 +14,6 @@ export class PageboundNormalizer {
         description: undefined,
         publishedDate: undefined,
       },
-
     };
   }
 }

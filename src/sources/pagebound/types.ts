@@ -31,7 +31,7 @@ export interface PageboundRawBook {
   owned: boolean;
   current_reading_instance: null | PageboundCurrentReadingInstance;
   has_reading_updates: boolean;
-  review: null | string;
+  review: null | PageboundReview;
   shelves: unknown[];
   reading_instances: unknown[];
 }
@@ -53,9 +53,37 @@ export interface PageboundCurrentReadingInstance {
   user_book_id: number;
   author_name: null;
   current_user_book: null;
-  review: null;
+  review: null | PageboundReview;
   has_reading_updates: boolean;
   progress_method: string;
+}
+
+export interface PageboundReview {
+  id: number;
+  uuid: string;
+  overall_rating: string;
+  plot_rating: string;
+  character_rating: string;
+  quality_rating: string;
+  entertainment_rating: string;
+  audiobook_rating: string | null;
+  emojis: string[];
+  review: string;
+  user_id: number;
+  username: string;
+  user_image_url: string;
+  book_id: number;
+  is_dnf: boolean;
+  is_spoiler: boolean;
+  is_flagged: boolean;
+  is_edited: boolean;
+  upvotes: number;
+  is_liked: boolean;
+  comment_count: number;
+  created_at: string;
+  user_is_paid_subscriber: boolean;
+  is_blocked: boolean;
+  is_publisher: boolean;
 }
 
 export interface PageboundNormalizedBook {
