@@ -49,6 +49,9 @@ const serverSchema = z.object({
   // PAGEBOUND
   PAGEBOUND_USER_ID: envValue.optional(),
 
+  // TUMBLR
+  TUMBLR_CONSUMER_KEY: envValue.optional(),
+  TUMBLR_BLOG_IDENTIFIER: envValue.optional(),
 });
 
 // eslint-disable-next-line node/no-process-env
@@ -85,6 +88,8 @@ const {
   FRESHRSS_API_PASSWORD,
   FRESHRSS_CATEGORY_NAME,
   PAGEBOUND_USER_ID,
+  TUMBLR_CONSUMER_KEY,
+  TUMBLR_BLOG_IDENTIFIER,
 } = _serverEnv.data;
 
 export const env = {
@@ -110,6 +115,8 @@ export const env = {
   FRESHRSS_USER_NAME,
   FRESHRSS_CATEGORY_NAME,
   PAGEBOUND_USER_ID,
+  TUMBLR_CONSUMER_KEY,
+  TUMBLR_BLOG_IDENTIFIER,
 };
 
 // eslint-disable-next-line no-console

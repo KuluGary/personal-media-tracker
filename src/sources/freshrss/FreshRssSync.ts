@@ -62,7 +62,7 @@ export class FreshRSSSync {
 
     try {
       const latestPostDateStr
-        = await this.entities.getLatestCreatedAt("blog_post");
+        = await this.entities.getLatestCreatedAt("post");
 
       let updatedAfter: number | undefined;
 
@@ -118,7 +118,7 @@ export class FreshRSSSync {
               childId: postEntityId,
               type: "HAS_POST",
               parentKind: "blog",
-              childKind: "blog_post",
+              childKind: "post",
             });
           }
         }

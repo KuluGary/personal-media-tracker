@@ -18,6 +18,9 @@ import { SteamNormalizer } from "@/sources/steam/SteamNormalizer";
 import { TraktClient } from "@/sources/trakt/TraktClient";
 import { TraktNormalizer } from "@/sources/trakt/TraktNormalizer";
 import { TraktSync } from "@/sources/trakt/TraktSync";
+import { TumblrClient } from "@/sources/tumblr/TumblrClient";
+import { TumblrNormalizer } from "@/sources/tumblr/TumblrNormalizer";
+import { TumblrSync } from "@/sources/tumblr/TumblrSync";
 import { YouTubeClient } from "@/sources/youtube/YouTubeClient";
 import { YouTubeNormalizer } from "@/sources/youtube/YouTubeNormalizer";
 import { YouTubeSync } from "@/sources/youtube/YouTubeSync";
@@ -152,5 +155,22 @@ export const syncRegistry: Record<string, () => Promise<{ run: () => Promise<voi
     const syncs = new SourceSyncRepository(db);
 
     return new PageboundSync(client, normalizer, entities, metadata, relationships, trackable, syncs);
+  },
+  tumblr: async () => {
+    const consumerKey = env.TUMBLR_CONSUMER_KEY;
+    const blogIdentifier = env.TUMBLR_BLOG_IDENTIFIER;
+
+    if (!consumerKey || !blogIdentifier) {
+      throw new Error("Missing TUMBLR_CONSUMER_KEY or TUMBLR_BLOG_IDENTIFIER in .env");
+    }
+
+    const client = new TumblrClient(consumerKey, blogIdentifier);
+    const normalizer = new TumblrNormalizer();
+    const entities = new EntityRepository(db);
+    const metadata = new MetadataRepository(db);
+    const relationships = new RelationshipRepository(db);
+    const syncs = new SourceSyncRepository(db);
+
+    return new TumblrSync(client, normalizer, entities, metadata, relationships, syncs);
   },
 };

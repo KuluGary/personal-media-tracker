@@ -10,6 +10,7 @@ Currently implemented for **games**, but designed to handle:
 - Movies & Shows (seasons and episodes)
 - Music (albums and songs)
 - Comics (manga, webcomics, comics, chapters)
+- Posts (RSS, social media, blogs)
 
 Key principles:
 

@@ -50,16 +50,16 @@ export class YouTubeSync {
       let processed = 0;
 
       for (const subscription of subscriptions) {
-        const normalize = this.normalizer.normalizeChannelSubscription(subscription);
+        const normalized = this.normalizer.normalizeChannelSubscription(subscription);
 
         const { entityId } = await this.entities.getOrCreateFromSource({
-          kind: normalize.kind,
-          title: normalize.title,
-          source: normalize.source,
-          externalId: normalize.externalId,
+          kind: normalized.kind,
+          title: normalized.title,
+          source: normalized.source,
+          externalId: normalized.externalId,
         });
 
-        await this.metadata.upsert(entityId, normalize.metadata);
+        await this.metadata.upsert(entityId, normalized.metadata);
 
         processed++;
       }

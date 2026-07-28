@@ -57,7 +57,7 @@ export interface FreshRSSSubscriptionListResponse {
 }
 
 export interface FreshRSSNormalizedFeedItem {
-  kind: "blog_post";
+  kind: "post";
   title: string;
 
   source: "freshrss";

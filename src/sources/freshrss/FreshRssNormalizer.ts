@@ -3,7 +3,7 @@ import type { FreshRSSItem, FreshRSSNormalizedFeed, FreshRSSNormalizedFeedItem, 
 export class FreshRSSNormalizer {
   normalizeBlogPost(feedItem: FreshRSSItem): FreshRSSNormalizedFeedItem {
     return {
-      kind: "blog_post",
+      kind: "post",
       title: feedItem.title,
 
       source: "freshrss",

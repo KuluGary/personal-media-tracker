@@ -1,10 +1,10 @@
 export type EntityKind
   = VideoEntityKind
-    | GameEntityKind
-    | MusicEntityKind
-    | MediaEntityKind
-    | BookEntityKind
-    | BlogEntityKind;
+  | GameEntityKind
+  | MusicEntityKind
+  | MediaEntityKind
+  | BookEntityKind
+  | BlogEntityKind;
 
 export type VideoEntityKind = "video" | "playlist" | "subscription";
 
@@ -16,4 +16,4 @@ export type MediaEntityKind = "movie" | "show" | "season" | "episode";
 
 export type BookEntityKind = "book" | "comic" | "manga" | "chapter";
 
-export type BlogEntityKind = "blog" | "blog_post";
+export type BlogEntityKind = "blog" | "post";
