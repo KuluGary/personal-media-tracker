@@ -7,7 +7,7 @@ import type {
 
 export class FreshRSSClient {
   constructor(
-    private userId: string,
+    private userName: string,
     private apiPassword: string,
   ) { }
 
@@ -103,7 +103,7 @@ export class FreshRSSClient {
     const res = await fetch(`${this.base}/accounts/ClientLogin`, {
       method: "POST",
       body: new URLSearchParams({
-        Email: this.userId,
+        Email: this.userName,
         Passwd: this.apiPassword,
       }),
     });

@@ -2,185 +2,217 @@
 
 ## 1. Overview
 
-This system is designed to track **any personal media** in a uniform, scalable way.
-Currently implemented for **games**, but designed to handle:
+This project uses a generic domain model for tracking personal media in a single database, regardless of the source system that provided the data. The current implementation is already broader than a game-only tracker: it supports games, videos, shows, music, books/comics, and blog-style posts, with external integrations acting as adapters rather than defining the domain model.
 
-- Games (and achievements)
-- Videos (YouTube, Twitch)
-- Movies & Shows (seasons and episodes)
-- Music (albums and songs)
-- Comics (manga, webcomics, comics, chapters)
-- Posts (RSS, social media, blogs)
+The domain is organized around a few core ideas:
 
-Key principles:
+1. **One canonical entity per thing** – every tracked item has an internal entity record.
+2. **External sources are adapters** – sync clients and normalizers produce entities, metadata, and relationships without dictating the schema.
+3. **Hierarchies are expressed as relationships** – parent/child links are flexible and reusable.
+4. **Behavior lives in capabilities** – progress, time tracking, and achievement state are modeled separately from identity.
+5. **Metadata is descriptive, not behavioral** – source-derived attributes are stored as JSON, while progress/time stays in dedicated state tables.
+6. **Invariants protect correctness** – the domain enforces valid kinds, relationship shapes, and state transitions.
 
-1. **Single source of truth per entity** – everything has a canonical `entity`.
-2. **External sources are adapters** – never dictate domain structure.
-3. **Hierarchies via relationships** – flexible parent → child links.
-4. **Capabilities for behavior** – progress, time, achievements.
-5. **Metadata is descriptive, not behavioral** – JSON blobs per entity.
-6. **Invariants protect correctness** – identity, relationships, state, progress.
+The current codebase already reflects this model in the domain layer and in the Supabase-backed repositories.
 
 ---
 
-## 2. Core Tables
+## 2. Core tables
 
 ### 2.1 `entities`
 
-- **Purpose:** Represent every individual trackable thing.
+- **Purpose:** The canonical record for every media item.
 - **Columns:**
-
-  - `id` (PK, bigint)
-  - `kind` (text, e.g., `game`, `episode`, `album`)
+  - `id` (PK)
+  - `kind` (text)
   - `title` (text)
   - `created_at`, `updated_at` (timestamps)
 
-- **Invariants:**
-
-  - Every entity has exactly one identity.
-  - Every entity has exactly one kind.
-  - Every entity has a title.
+- **Notes:**
+  - `kind` is semantic, not structural. It describes what the entity is, not how it must be stored.
+  - The current implementation defines kinds such as `game`, `achievement`, `video`, `playlist`, `subscription`, `movie`, `show`, `season`, `episode`, `album`, `song`, `book`, `comic`, `manga`, `chapter`, `blog`, and `post`.
 
 ### 2.2 `source_identities`
 
-- **Purpose:** Map external system IDs to internal entities.
+- **Purpose:** Maps an external system identifier to an internal entity.
 - **Columns:**
-
   - `id` (PK)
   - `entity_id` (FK → `entities`)
-  - `source` (text, e.g., `steam`, `youtube`, `tmdb`)
+  - `source` (text, e.g. `steam`, `youtube`, `trakt`, `retroachievements`)
   - `external_id` (text)
   - `created_at`
 
 - **Invariants:**
-
   - `(source, external_id)` is unique.
   - One entity can have multiple source identities.
-  - Deleting an entity cascades source identities.
+  - Deleting an entity cascades its source identity rows.
 
 ### 2.3 `relationships`
 
-- **Purpose:** Represent hierarchies and parent → child links.
+- **Purpose:** Represents parent/child links between entities.
 - **Columns:**
-
   - `id` (PK)
   - `parent_entity_id` (FK → `entities`)
   - `child_entity_id` (FK → `entities`)
-  - `relationship_type` (text, e.g., `HAS_SEASON`, `HAS_ACHIEVEMENT`)
+  - `relationship_type` (text)
   - `created_at`
 
 - **Invariants:**
+  - No self-links (`parent_entity_id != child_entity_id`).
+  - No duplicate edges (`parent_entity_id`, `child_entity_id`, `relationship_type`).
+  - The domain layer enforces that only valid kind combinations participate in a relationship type.
 
-  - No self-links (`parent_entity_id ≠ child_entity_id`).
-  - No duplicate edges (`parent_entity_id, child_entity_id, relationship_type` unique).
+- **Implemented relationship types in the current domain code:**
+  - `HAS_SEASON` → `show` → `season`
+  - `HAS_EPISODE` → `season` → `episode`
+  - `HAS_ACHIEVEMENT` → `game` → `achievement`
+  - `HAS_TRACK` → `album` → `song`
+  - `HAS_SUBSCRIPTION` → `subscription` → `video` or `playlist`
+  - `HAS_PLAYLIST` → `playlist` → `video`
 
-- **Domain-level invariants:** Only valid kinds participate in a given relationship type.
+- **Additional relationship types in the type union:**
+  - `HAS_VIDEO` and `HAS_POST` are defined in the domain type system for broader extensibility, but the currently enforced invariant module focuses on the relationship patterns above.
 
 ### 2.4 `entity_metadata`
 
-- **Purpose:** Store descriptive, source-derived fields for each entity.
+- **Purpose:** Stores descriptive, source-derived data for an entity.
 - **Columns:**
-
   - `entity_id` (PK, FK → `entities`)
   - `data` (`jsonb`)
   - `updated_at`
 
 - **Notes:**
-
-  - Flexible structure per entity kind.
-  - Examples: genres, runtime, platforms, director, release year.
-  - Non-behavioral: progress, completion, or time should **not** be here.
+  - This is intentionally flexible and kind-specific.
+  - Examples include genres, runtime, platforms, streaming metadata, release dates, and channel information.
+  - Behavioral state such as progress, completion, and time should never be stored here.
 
 ### 2.5 `trackable_state`
 
-- **Purpose:** Track user progress / status for trackable entities.
+- **Purpose:** Stores user-facing progress/status for trackable entities.
 - **Columns:**
-
   - `entity_id` (PK, FK → `entities`)
-  - `status` (text, e.g., `backlog`, `in_progress`, `completed`)
+  - `status` (text, e.g. `backlog`, `in_progress`, `completed`)
   - `progress` (numeric, optional)
-  - `started_at`, `finished_at` (optional dates)
+  - `started_at`, `finished_at` (timestamps, optional)
   - `updated_at`
 
 - **Invariants:**
-
-  - Only trackable entities may have this row.
-  - `finished_at` ≥ `started_at`.
   - One row per entity.
+  - `finished_at` must not be earlier than `started_at`.
+  - This capability is intended for entities that are inherently progress-oriented.
 
 ### 2.6 `time_state`
 
-- **Purpose:** Track accumulated time spent on entities.
+- **Purpose:** Stores accumulated time spent on an entity.
 - **Columns:**
-
   - `entity_id` (PK, FK → `entities`)
-  - `total_seconds` (bigint, ≥0)
+  - `total_seconds` (numeric, non-negative)
   - `updated_at`
 
 - **Invariants:**
-
   - One row per entity.
-  - Only time-trackable entities may appear here.
-  - `total_seconds` ≥ 0.
+  - `total_seconds` must be non-negative.
+  - This is intended for entities that can meaningfully accumulate play/watch/listen time.
+
+### 2.7 `source_syncs`
+
+- **Purpose:** Tracks the execution of each sync run for an external source.
+- **Columns:**
+  - `id` (PK)
+  - `source` (text)
+  - `status` (text)
+  - `started_at`, `finished_at`
+  - `stats` (`jsonb`, optional)
+  - `error_message` (text, optional)
+
+- **Notes:**
+  - This is an operational table used by the sync pipeline rather than a business-domain table.
+  - It helps the app understand whether a source import succeeded and what it processed.
+
+### 2.8 `source_identity_sync_state`
+
+- **Purpose:** Stores per-source-identity sync metadata such as the last sync status and errors.
+- **Columns:**
+  - `source_identity_id` (FK → `source_identities`)
+  - `last_sync_status`
+  - `last_synced_at`
+  - `last_error`
+
+- **Notes:**
+  - This complements `source_syncs` by attaching sync state to a specific external identity rather than to the entire source run.
 
 ---
 
 ## 3. Capabilities
 
-Capabilities are **composable behaviors** attached to entities:
+Capabilities are composable behaviors attached to entities. They are separate from the base entity record so the same entity shape can support different behaviors depending on kind.
 
-| Capability   | Applies to                               | What it stores                            |
-| ------------ | ---------------------------------------- | ----------------------------------------- |
-| Trackable    | Games, Episodes, Videos, Songs, Chapters | status, progress, started_at, finished_at |
-| Time-based   | Games, Videos, Music                     | total_seconds, updated_at                 |
-| Achievements | Games                                    | unlocked state (entities + state)         |
-| Aggregation  | Shows, Albums, Channels, Seasons         | Derived from children, computed on demand |
+| Capability | Applies to | What it stores |
+| --- | --- | --- |
+| Trackable | `game`, `episode`, `movie`, `song` | status, progress, started/finished timestamps |
+| Time-based | `game`, `episode`, `movie`, `song` | accumulated time in seconds |
+| Achievements | `game` children of kind `achievement` | achievement unlock state |
+| Aggregation | container-style entities such as `show`, `season`, `album`, `playlist`, `subscription` | derived from child entities, computed on demand |
 
-Containers like Seasons, Shows, Albums **do not track progress or time directly** — they aggregate from children.
-
----
-
-## 4. Invariants (summary)
-
-- Every entity has a unique identity and kind.
-- External `(source, external_id)` points to exactly one entity.
-- Relationships cannot be self-referential or duplicated.
-- Only valid entity kinds participate in a given relationship type (domain-level).
-- Trackable and time state only exist for applicable entity kinds.
-- `finished_at` ≥ `started_at`.
-- `total_seconds` ≥ 0.
+Containers such as shows, seasons, albums, and playlists do not need to own their own progress/time rows unless the product later decides to make them first-class trackable entities.
 
 ---
 
-## 5. Domain Principles
+## 4. Current invariants in the code
 
-1. **Sources are adapters:** They emit entities, relationships, and metadata but never dictate structure.
-2. **Hierarchies are relationships:** Flexible, composable, and uniform.
-3. **Metadata is descriptive:** JSON blobs; never store behavioral data here.
-4. **Capabilities model behavior:** Progress, time, achievements are separate from the entity table.
-5. **DB enforces structural invariants:** Domain code enforces semantic invariants.
-6. **Single vertical slices first:** Start with one source per entity type to validate the model before scaling.
+The implementation currently enforces the following rules:
+
+- Every entity has a unique internal identity and a kind.
+- External `(source, external_id)` pairs map to a single internal entity.
+- Relationships cannot be self-referential.
+- Relationships cannot be duplicated.
+- The relationship invariants currently validate the following parent/child combinations:
+  - `show` → `season`
+  - `season` → `episode`
+  - `game` → `achievement`
+  - `album` → `song`
+  - `subscription` → `video` or `playlist`
+  - `playlist` → `video`
+- Trackable and time-based state only exist for kinds that the capability layer marks as applicable.
+- `finished_at` must not precede `started_at`.
+- `total_seconds` must be non-negative.
+
+The domain rules live in the invariants modules under the domain layer, while the repository layer persists the data in Supabase.
 
 ---
 
-## 6. Future considerations
+## 5. Domain principles
 
-- Multi-user support: add `user_id` to state tables.
-- Raw payload caching: optional JSON column in `source_identities`.
-- Analytics: session logs, daily summaries, derived metrics.
-- Aggregation caches: e.g., show progress %, album completion %.
-- Policies for Supabase row-level security (if multi-user).
-- Additional capabilities as new media types are added.
+1. **Sources are adapters:** sync clients and normalizers emit entities, relationships, and metadata, but they do not define the domain structure.
+2. **Relationships represent hierarchy:** parent/child links are the primary way of expressing composition.
+3. **Metadata is descriptive:** JSON blobs are used for descriptive attributes and source-specific enrichment.
+4. **Capabilities model behavior:** progress, time, and achievement behavior are separate from the core entity table.
+5. **The model is extensible:** the current code already covers games, video/media, music, books/comics, and blog-like content, and can grow further without changing the core shape.
+6. **Vertical slices are preferred:** the implementation flows from source → normalizer → sync → repositories → domain state.
 
 ---
 
-## 7. Suggested workflow when returning to the project
+## 6. Current implementation context
 
-1. Review the **domain contract** (entities, relationships, capabilities).
-2. Check **invariants** to understand why tables are structured this way.
-3. Work in **vertical slices**: source → repository → domain → sync → UI.
-4. Avoid adding custom per-domain tables unless truly necessary.
-5. Keep metadata, trackable_state, and time_state separate from identity and relationships.
+The current repository already reflects this domain model in a few concrete ways:
+
+- The entity kinds and relationship types are defined in the domain layer under the entity and relationship modules.
+- The capability layer determines which kinds are trackable and time-based.
+- The repository layer separates entity identity, metadata, relationships, progress, and time into distinct persistence concerns.
+- Sync sources such as Steam, RetroAchievements, YouTube, FreshRSS, MangaDex, and Pagebound all feed into the same model instead of creating source-specific tables.
+
+This makes the model suitable for expanding from the current sync integrations into additional media types without introducing one-off schema patterns.
+
+---
+
+## 7. Future considerations
+
+- Multi-user support: add a user dimension to state tables.
+- Raw payload caching: store additional source payloads as JSON if the product needs auditability.
+- Analytics: add sessions, streaks, daily summaries, and derived metrics.
+- Aggregation caches: compute and cache completion percentages for shows, albums, playlists, and similar containers.
+- Access control: use row-level security in Supabase if the app becomes multi-user.
+- Additional capability types: the model can evolve if new behaviors (e.g. ratings, collections, or watchlists) need first-class support.
 
 ---
 
@@ -188,10 +220,11 @@ Containers like Seasons, Shows, Albums **do not track progress or time directly*
 
 ![Domain diagram](./diagram.jpg)
 
-This diagram shows the core tables and their primary relationships.
+The diagram should be read as a layered model:
 
-- `entities` is the central table.
-- `source_identities` maps external systems to entities.
-- `relationships` define hierarchical links.
-- `entity_metadata` holds descriptive information.
-- `trackable_state` and `time_state` are capabilities representing user interaction.
+- `entities` sits at the center as the canonical identity.
+- `source_identities` connects internal entities to external IDs.
+- `relationships` define composition and hierarchy.
+- `entity_metadata` stores descriptive attributes.
+- `trackable_state` and `time_state` hold behavioral state.
+- `source_syncs` and `source_identity_sync_state` capture operational sync health.

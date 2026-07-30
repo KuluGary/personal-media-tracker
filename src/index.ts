@@ -1,27 +1,46 @@
-import { syncRegistry } from "./sync/SyncRegistry";
+import { DoctorCommand } from "./commands/DoctorCommand";
+import { InitCommand } from "./commands/InitCommand";
+import { SourcesCommand } from "./commands/SourcesCommand";
+import { SyncCommand } from "./commands/SyncCommand";
+import { loadConfig } from "./config/loadConfig";
+import { DatabaseDoctor } from "./db/DatabaseDoctor";
+import { db } from "./db/supabase";
+import { createSourceRegistry } from "./sources/utils/SourceRegistry";
 
 async function main() {
-  const source = process.argv[2];
+  const command = process.argv[2];
 
-  if (!source) {
-    console.error("Usage: npm start -- <source>");
-    console.error("Available sources:", Object.keys(syncRegistry).join(", "));
-    process.exit(1);
-  }
+  if (!command)
+    throw new Error("Please add a command");
 
-  const factory = syncRegistry[source];
+  const commands = {
+    init: () => new InitCommand(),
+    doctor: async () => {
+      const config = await loadConfig();
+
+      return new DoctorCommand(createSourceRegistry(config), new DatabaseDoctor(db));
+    },
+    sources: async () => {
+      const config = await loadConfig();
+
+      return new SourcesCommand(createSourceRegistry(config));
+    },
+    sync: async () => {
+      const config = await loadConfig();
+
+      return new SyncCommand(createSourceRegistry(config));
+    },
+  };
+
+  const factory = commands[command as keyof typeof commands];
 
   if (!factory) {
-    console.error(`Unknown source: ${source}`);
-    console.error("Available sources:", Object.keys(syncRegistry).join(", "));
+    console.error(`Unknown command: ${command}`);
     process.exit(1);
   }
 
-  const sync = await factory();
-
-  await sync.run();
-
-  process.exit(0);
+  const handler = await factory();
+  await handler.run(process.argv.slice(3));
 }
 
 main().catch((err) => {
