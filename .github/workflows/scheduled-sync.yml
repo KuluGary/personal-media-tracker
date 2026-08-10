@@ -103,6 +103,3 @@ jobs:
 
       - name: Run Pagebound sync
         run: npm start -- sync pagebound
-
-      - name: Run Tumblr sync
-        run: npm start -- sync tumblr
