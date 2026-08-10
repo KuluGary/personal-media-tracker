@@ -36,7 +36,7 @@ export class FreshRSSSync {
     this.progress.start("Fetching \"subscriptions\"...");
 
     try {
-      const blogs = await this.client.fetchSubscriptions();
+      const blogs = await this.client.fetchSubscriptions(this.request?.params?.tag);
 
       let processed = 0;
 
@@ -77,7 +77,7 @@ export class FreshRSSSync {
     this.progress.start("Fetching \"starred entries\"...");
 
     try {
-      const subscriptions = await this.client.fetchSubscriptions();
+      const subscriptions = await this.client.fetchSubscriptions(this.request?.params?.tag);
 
       const latestPostDateStr
         = await this.repositories.entities.getLatestCreatedAt("post");
