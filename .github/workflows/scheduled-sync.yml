@@ -21,6 +21,7 @@ jobs:
       YOUTUBE_PLAYLIST_ID: ${{ secrets.YOUTUBE_PLAYLIST_ID }}
       FRESHRSS_USER_NAME: ${{ secrets.FRESHRSS_USER_NAME }}
       FRESHRSS_API_PASSWORD: ${{ secrets.FRESHRSS_API_PASSWORD }}
+      FRESHRSS_FILTER_TAG: ${{ secrets.FRESHRSS_FILTER_TAG }}
       PAGEBOUND_USER_ID: ${{ secrets.PAGEBOUND_USER_ID }}
       TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
       TUMBLR_BLOG_IDENTIFIER: ${{ secrets.TUMBLR_BLOG_IDENTIFIER }}
@@ -89,7 +90,7 @@ jobs:
         run: npm start -- sync youtube playlist-items --playlist "$YOUTUBE_PLAYLIST_ID"
 
       - name: Run FreshRSS sync
-        run: npm start -- sync freshrss
+        run: npm start -- sync freshrss --tag "$FRESHRSS_FILTER_TAG"
 
       - name: Run Pagebound sync
         run: npm start -- sync pagebound
