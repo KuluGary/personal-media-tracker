@@ -65,8 +65,8 @@ jobs:
       - name: Configure Tumblr
         run: |
           npm start -- add tumblr \
-            --api-key "$TUMBLR_API_KEY" \
-            --blog "$TUMBLR_BLOG"
+            --api-key "$TUMBLR_CONSUMER_KEY" \
+            --blog "$TUMBLR_BLOG_IDENTIFIER"
 
       - name: Configure FreshRSS
         run: |
