@@ -21,7 +21,7 @@ import { PageboundNormalizer } from "./PageboundNormalizer";
 import { PageboundSync } from "./PageboundSync";
 
 export const pageboundSourceSchema = z.object({
-  userName: z.string(),
+  userId: z.string(),
 });
 
 export const PAGEBOUND_SYNCS = {
@@ -69,7 +69,7 @@ export class PageboundSource implements SourceDefinition {
   async createSync(request?: SyncRequest) {
     const source = this.getValidatedConfiguration();
 
-    const client = new PageboundClient(source.userName);
+    const client = new PageboundClient(source.userId);
     const normalizer = new PageboundNormalizer();
     const entities = new EntityRepository(this.db);
     const metadata = new MetadataRepository(this.db);
@@ -105,7 +105,7 @@ export class PageboundSource implements SourceDefinition {
     const source = pageboundSourceSchema.parse(configuration);
 
     const client = new PageboundClient(
-      source.userName,
+      source.userId,
     );
 
     await client.validate();
@@ -113,7 +113,7 @@ export class PageboundSource implements SourceDefinition {
 
   getConfigurationFields(): SourceConfigurationField[] {
     return [
-      { key: "userName", type: "text", label: "User name" },
+      { key: "useuserIdrName", type: "text", label: "User name" },
     ];
   }
 
