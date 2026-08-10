@@ -113,7 +113,7 @@ export class PageboundSource implements SourceDefinition {
 
   getConfigurationFields(): SourceConfigurationField[] {
     return [
-      { key: "useuserIdrName", type: "text", label: "User name" },
+      { key: "userId", type: "text", label: "User ID" },
     ];
   }
 
