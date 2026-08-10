@@ -6,10 +6,10 @@ import type { PageboundRawBook, PageboundUserBooksResponse } from "./types";
 export class PageboundClient {
   /**
    * Create a new Pagebound API Client.
-   * @param userName Pagebound user identifier
+   * @param userId Pagebound user identifier
    */
   constructor(
-    private userName: string,
+    private userId: string,
   ) { }
 
   /**
@@ -17,7 +17,7 @@ export class PageboundClient {
    * Internally paginates through the Pagebound API until all books have been retrieved.
    */
   async fetchFinishedBooks(): Promise<PageboundRawBook[]> {
-    const url = `https://prod-pagebound-api.onrender.com/api/v1/users/${this.userName}/user_books?status=finished&page=<PAGE>&sort_by=title&asc=true`;
+    const url = `https://prod-pagebound-api.onrender.com/api/v1/users/${this.userId}/user_books?status=finished&page=<PAGE>&sort_by=title&asc=true`;
 
     return this.fetchBooks(url);
   }
@@ -27,7 +27,7 @@ export class PageboundClient {
    * Internally paginates through the Pagebound API until all books have been retrieved.
    */
   async fetchCurrentBooks(): Promise<PageboundRawBook[]> {
-    const url = `https://prod-pagebound-api.onrender.com/api/v1/users/${this.userName}/user_books?status=current&page=<PAGE>&sort_by=title&asc=true`;
+    const url = `https://prod-pagebound-api.onrender.com/api/v1/users/${this.userId}/user_books?status=current&page=<PAGE>&sort_by=title&asc=true`;
 
     return this.fetchBooks(url);
   }
@@ -37,7 +37,7 @@ export class PageboundClient {
    * Internally paginates through the Pagebound API until all books have been retrieved.
    */
   async fetchToBeReadBooks(): Promise<PageboundRawBook[]> {
-    const url = `https://prod-pagebound-api.onrender.com/api/v1/users/${this.userName}/user_books?status=tbr&page=<PAGE>&sort_by=title&asc=true`;
+    const url = `https://prod-pagebound-api.onrender.com/api/v1/users/${this.userId}/user_books?status=tbr&page=<PAGE>&sort_by=title&asc=true`;
 
     return this.fetchBooks(url);
   }
@@ -54,7 +54,7 @@ export class PageboundClient {
    * Throws if the user does not exist or the API request fails.
    */
   private async fetchUser(): Promise<unknown> {
-    const url = `https://prod-pagebound-api.onrender.com/api/v1/users/${this.userName}`;
+    const url = `https://prod-pagebound-api.onrender.com/api/v1/users/${this.userId}`;
 
     const res = await fetch(url);
 

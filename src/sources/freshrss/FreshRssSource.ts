@@ -56,7 +56,7 @@ export class FreshRSSSource implements SourceDefinition {
   async createSync(request?: SyncRequest) {
     const source = this.getValidatedConfiguration();
 
-    const client = new FreshRSSClient(source.apiPassword, source.userName);
+    const client = new FreshRSSClient(source.userName, source.apiPassword);
     const normalizer = new FreshRSSNormalizer();
     const entities = new EntityRepository(this.db);
     const metadata = new MetadataRepository(this.db);

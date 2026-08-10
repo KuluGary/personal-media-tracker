@@ -15,7 +15,6 @@ export class FreshRSSClient {
   ) { }
 
   private base = "https://rss.32bit.cafe/api/greader.php";
-  // private blogsLabel = "user/-/label/Blogs";
 
   private authToken?: string;
 
@@ -106,16 +105,25 @@ export class FreshRSSClient {
     if (this.authToken)
       return this.authToken;
 
+    const body = new URLSearchParams({
+      Email: this.userName,
+      Passwd: this.apiPassword,
+    });
+
     const res = await fetch(`${this.base}/accounts/ClientLogin`, {
       method: "POST",
-      body: new URLSearchParams({
-        Email: this.userName,
-        Passwd: this.apiPassword,
-      }),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
     });
 
     if (!res.ok) {
-      throw new Error(`FreshRSS login failed: ${res.status}`);
+      const body = await res.text();
+
+      throw new Error(
+        `FreshRSS login failed (${res.status}): ${body}`,
+      );
     }
 
     const text = await res.text();
