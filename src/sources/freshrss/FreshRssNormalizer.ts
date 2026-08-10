@@ -1,7 +1,7 @@
 import type { FreshRSSItem, FreshRSSNormalizedFeed, FreshRSSNormalizedFeedItem, FreshRSSSubscription } from "./types";
 
 export class FreshRSSNormalizer {
-  normalizeBlogPost(feedItem: FreshRSSItem): FreshRSSNormalizedFeedItem {
+  normalizeEntry(feedItem: FreshRSSItem): FreshRSSNormalizedFeedItem {
     return {
       kind: "post",
       title: feedItem.title,
@@ -21,7 +21,7 @@ export class FreshRSSNormalizer {
     };
   }
 
-  normalizeBlog(feed: FreshRSSSubscription): FreshRSSNormalizedFeed {
+  normalizeSubscription(feed: FreshRSSSubscription): FreshRSSNormalizedFeed {
     return {
       kind: "blog",
       title: feed.title,

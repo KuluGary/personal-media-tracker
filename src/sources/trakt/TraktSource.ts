@@ -1,16 +1,18 @@
 import z from "zod";
 
 import type { AppConfig } from "@/config/AppConfig";
+import type { TrackerDatabase } from "@/db/types";
+import type { SyncDefinition } from "@/sync/SyncDefinition";
 
-import { db } from "@/db/supabase";
 import { EntityRepository } from "@/repositories/EntityRepository";
 import { MetadataRepository } from "@/repositories/MetadataRepository";
 import { RelationshipRepository } from "@/repositories/RelationshipRepository";
 import { SourceSyncRepository } from "@/repositories/SourceSyncRepository";
 
-import type { SourceDefinition } from "../utils/SourceDefinition";
+import type { SourceConfigurationField } from "../SourceConfigurationField";
+import type { SourceDefinition } from "../SourceDefinition";
 
-import { InvalidSourceConfiguration } from "../utils/InvalidSourceException";
+import { InvalidSourceConfiguration } from "../InvalidSourceException";
 import { TraktClient } from "./TraktClient";
 import { TraktNormalizer } from "./TraktNormalizer";
 import { TraktSync } from "./TraktSync";
@@ -21,10 +23,10 @@ export const traktSourceSchema = z.object({
 });
 
 export class TraktSource implements SourceDefinition {
-  id = "Traks";
-  displayName = "Trakt.tv";
+  id = "trakt";
+  displayName = "Trakt";
 
-  constructor(private readonly config: AppConfig) { }
+  constructor(private readonly config: AppConfig, private readonly db: TrackerDatabase) { }
 
   hasConfiguration() {
     return !!this.config.sources.retroachievements;
@@ -48,11 +50,44 @@ export class TraktSource implements SourceDefinition {
 
     const client = new TraktClient(source.apiKey, source.userId);
     const normalizer = new TraktNormalizer();
-    const entities = new EntityRepository(db);
-    const metadata = new MetadataRepository(db);
-    const relationships = new RelationshipRepository(db);
-    const syncs = new SourceSyncRepository(db);
+    const entities = new EntityRepository(this.db);
+    const metadata = new MetadataRepository(this.db);
+    const relationships = new RelationshipRepository(this.db);
+    const syncs = new SourceSyncRepository(this.db);
 
     return new TraktSync(client, normalizer, entities, metadata, relationships, syncs);
+  }
+
+  getConfigurationSchema() {
+    return traktSourceSchema;
+  }
+
+  async normalizeConfiguration(configuration: Record<string, unknown>) {
+    return configuration;
+  }
+
+  async validateConfiguration(configuration: unknown): Promise<void> {
+    const source = traktSourceSchema.parse(configuration);
+
+    const _client = new TraktClient(
+      source.apiKey,
+      source.userId,
+    );
+  }
+
+  getConfigurationFields(): SourceConfigurationField[] {
+    return [
+      { key: "apiKey", type: "password", label: "API Key" },
+      { key: "userId", type: "text", label: "User ID" },
+    ];
+  }
+
+  getSyncDefinitions(): SyncDefinition[] {
+    return [
+      { id: "favorite-shows", displayName: "Favorite shows" },
+      { id: "watchlist-shows", displayName: "Watchlist shows" },
+      { id: "favorite-movies", displayName: "Favorite movies" },
+      { id: "watchlist-movies", displayName: "Watchlist movies" },
+    ];
   }
 }

@@ -1,6 +1,12 @@
 import type { SteamGame, SteamNormalizedAchievement, SteamNormalizedGame, SteamUserAchievementWithMetadata } from "./types";
 
+/**
+ * Transforms Steam API entities into canonical domain entities.
+ */
 export class SteamNormalizer {
+  /**
+   * Converts a Steam game into the application's canonical game representation.
+   */
   normalizeGame(game: SteamGame): SteamNormalizedGame {
     return {
       kind: "game",
@@ -25,6 +31,9 @@ export class SteamNormalizer {
     };
   }
 
+  /**
+   * Converts a Steam achievement into the application's canonical achievement representation.
+   */
   normalizeAchievement(achievement: SteamUserAchievementWithMetadata): SteamNormalizedAchievement {
     return {
       kind: "achievement",

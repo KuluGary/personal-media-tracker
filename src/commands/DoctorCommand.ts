@@ -1,5 +1,5 @@
 import type { DatabaseDoctor } from "@/db/DatabaseDoctor";
-import type { SourceRegistry } from "@/sources/utils/SourceRegistry";
+import type { SourceRegistry } from "@/sources/SourceRegistry";
 
 import { logger } from "@/utils/logger";
 
@@ -48,12 +48,15 @@ export class DoctorCommand implements Command {
       }
 
       try {
-        source.getValidatedConfiguration();
-        logger.log(`◉ ${source.displayName}`, { indent: 1 });
+        const config = source.getValidatedConfiguration();
+
+        await source.validateConfiguration(config);
+
+        logger.success(source.displayName, { indent: 1 });
       }
       catch (error) {
-        logger.error(`${source.displayName}`, { indent: 1 });
-        logger.error(`${(error as Error).message}`, { indent: 2 });
+        logger.error(source.displayName, { indent: 1 });
+        logger.error((error as Error).message, { indent: 2 });
       }
     }
 

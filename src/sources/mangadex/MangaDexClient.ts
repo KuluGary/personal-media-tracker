@@ -78,4 +78,8 @@ export class MangaDexClient {
       "Connection": "keep-alive",
     };
   }
+
+  async validate() {
+    await this.authenticate();
+  }
 }

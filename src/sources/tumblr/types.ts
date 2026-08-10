@@ -186,3 +186,16 @@ export interface TumblrNormalizedPost {
     summary?: string;
   };
 }
+
+export interface TumblrBlogInfoResponse {
+  meta: {
+    status: number;
+    msg: string;
+  };
+  response: {
+    blog: {
+      name: string;
+      title: string;
+    };
+  };
+}

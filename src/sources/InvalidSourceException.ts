@@ -1,5 +1,4 @@
 import type { ZodError } from "zod";
-import type z from "zod";
 
 export class InvalidSourceConfiguration extends Error {
   constructor(

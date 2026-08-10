@@ -1,6 +1,12 @@
 import type { PageboundNormalizedBook, PageboundRawBook } from "./types";
 
+/**
+ * Transforms Pagebound API entities into canonical domain entities.
+ */
 export class PageboundNormalizer {
+  /**
+   * Converts a Pagebound book into the application's canonical book representation.
+   */
   normalizeBooks(book: PageboundRawBook): PageboundNormalizedBook {
     return {
       kind: "book",

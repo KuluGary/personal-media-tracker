@@ -17,36 +17,34 @@ import type { SourceConfigurationField } from "../SourceConfigurationField";
 import type { SourceDefinition } from "../SourceDefinition";
 
 import { InvalidSourceConfiguration } from "../InvalidSourceException";
-import { YouTubeClient } from "./YouTubeClient";
-import { YouTubeNormalizer } from "./YouTubeNormalizer";
-import { YouTubeSync } from "./YouTubeSync";
+import { HowLongToBeatClient } from "./HowLongToBeatClient";
+import { HowLongToBeatNormalizer } from "./HowLongToBeatNormalizer";
+import { HowLongToBeatSync } from "./HowLongToBeatSync";
 
-export const youTubeSourceSchema = z.object({
-  apiKey: z.string(),
+export const howLongToBeatSourceSchema = z.object({
+  userId: z.string(),
 });
 
-/**
- * Defines methods to configure application sources for the YouTube integration.
- */
-export class YouTubeSource implements SourceDefinition {
-  id = "youtube";
-  displayName = "YouTube";
+export const HOW_LONG_TO_BEAT_SYNCS = {
+  PLAYING: "playing",
+  BACKLOG: "backlog",
+  FAVOURITE: "favourite",
+  COMPLETED: "completed",
+  RETIRED: "retired",
+} as const;
 
-  constructor(private readonly config: AppConfig, private readonly db: TrackerDatabase) { }
+export class HowLongToBeatSource implements SourceDefinition {
+  id = "howlongtobeat";
+  displayName = "How Long To Beat";
 
-  /**
-   * Returns whether a YouTube source configuration exists.
-   */
+  constructor(private readonly config: AppConfig, private readonly db: TrackerDatabase) {}
+
   hasConfiguration() {
-    return !!this.config.sources.youtube;
+    return !!this.config.sources.howlongtobeat;
   }
 
-  /**
-   * Returns the validated YouTube configuration.
-   * Throws InvalidSourceConfiguration if the configured values are invalid.
-   */
   getValidatedConfiguration() {
-    const source = youTubeSourceSchema.safeParse(this.config.sources.youtube);
+    const source = howLongToBeatSourceSchema.safeParse(this.config.sources.howlongtobeat);
 
     if (!source.success) {
       throw new InvalidSourceConfiguration(
@@ -58,14 +56,11 @@ export class YouTubeSource implements SourceDefinition {
     return source.data;
   }
 
-  /**
-   * Creates a fully cofigured YouTube instance with all required dependencies.
-   */
   async createSync(request?: SyncRequest) {
     const source = this.getValidatedConfiguration();
 
-    const client = new YouTubeClient(source.apiKey);
-    const normalzier = new YouTubeNormalizer();
+    const client = new HowLongToBeatClient(source.userId);
+    const normalizer = new HowLongToBeatNormalizer();
     const entities = new EntityRepository(this.db);
     const metadata = new MetadataRepository(this.db);
     const relationships = new RelationshipRepository(this.db);
@@ -75,42 +70,28 @@ export class YouTubeSource implements SourceDefinition {
 
     const repositories = new Repositories(entities, metadata, relationships, syncs, time);
 
-    return new YouTubeSync(client, normalzier, repositories, progress, request);
+    return new HowLongToBeatSync(client, normalizer, repositories, progress, request);
   }
 
   getConfigurationSchema() {
-    return youTubeSourceSchema;
+    return howLongToBeatSourceSchema;
   }
 
   async normalizeConfiguration(configuration: Record<string, unknown>) {
     return configuration;
   }
 
-  async validateConfiguration(_configuration: unknown) {
-    // const source = youTubeSourceSchema.parse(configuration);
-  }
+  async validateConfiguration(_configuration: unknown) {}
 
   getConfigurationFields(): SourceConfigurationField[] {
     return [
-      { key: "apiKey", type: "password", label: "API key" },
+      { key: "userId", type: "text", label: "User ID" },
     ];
   }
 
   getSyncDefinitions(): SyncDefinition[] {
     return [
-      {
-        id: "playlist-items",
-        displayName: "Playlist videos",
-        parameters: [
-          {
-            id: "playlist",
-            displayName: "Playlist",
-            required: true,
-            description: "Playlist ID or URL",
-            type: "text",
-          },
-        ],
-      },
+      { id: "games", displayName: "Games" },
     ];
   }
 }

@@ -1,13 +1,14 @@
 import { z } from "zod";
 
 import { freshRssSourceSchema } from "@/sources/freshrss/FreshRssSource";
+import { howLongToBeatSourceSchema } from "@/sources/howlongtobeat/HowLongToBeatSource";
 import { mangaDexSourceSchema } from "@/sources/mangadex/MangadexSource";
 import { pageboundSourceSchema } from "@/sources/pagebound/PageboundSource";
 import { retroachievementsSourceSchema } from "@/sources/retroachievements/RetroachievementsSource";
 import { steamSourceSchema } from "@/sources/steam/SteamSource";
 import { traktSourceSchema } from "@/sources/trakt/TraktSource";
 import { tumblrSourceSchema } from "@/sources/tumblr/TumblrSource";
-import { youTubeSourceSchema } from "@/sources/youtube/YoutubeSource";
+import { youTubeSourceSchema } from "@/sources/youtube/YouTubeSource";
 
 export const configFileSchema = z.object({
   database: z.object({
@@ -24,6 +25,7 @@ export const configFileSchema = z.object({
     trakt: traktSourceSchema.optional(),
     tumblr: tumblrSourceSchema.optional(),
     youtube: youTubeSourceSchema.optional(),
+    howlongtobeat: howLongToBeatSourceSchema.optional(),
   }),
 });
 

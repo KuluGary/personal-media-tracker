@@ -1,68 +1,86 @@
-import type { EntityRepository } from "@/repositories/EntityRepository";
-import type { MetadataRepository } from "@/repositories/MetadataRepository";
-import type { RelationshipRepository } from "@/repositories/RelationshipRepository";
-import type { SourceSyncRepository } from "@/repositories/SourceSyncRepository";
+import type { Repositories } from "@/repositories/Repositories";
+import type { SyncProgressReporter } from "@/sync/SyncProgressReport";
+import type { SyncRequest } from "@/sync/SyncRequest";
 
 import type { FreshRSSClient } from "./FreshRssClient";
 import type { FreshRSSNormalizer } from "./FreshRssNormalizer";
-import type { FreshRSSSubscription } from "./types";
+
+import { FRESH_RSS_SYNCS } from "./FreshRssSource";
 
 export class FreshRSSSync {
   constructor(
     private client: FreshRSSClient,
     private normalizer: FreshRSSNormalizer,
-    private entities: EntityRepository,
-    private metadata: MetadataRepository,
-    private relationships: RelationshipRepository,
-    private syncs: SourceSyncRepository,
+    private repositories: Repositories,
+    private progress: SyncProgressReporter,
+    private request?: SyncRequest,
   ) { }
 
   async run() {
-    const blogs = await this.runFollowingBlogs();
-    await this.runFavouriteBlogPosts(blogs);
+    switch (this.request?.syncId) {
+      case FRESH_RSS_SYNCS.SUBSCRIPTIONS:
+        return this.runSubscriptions();
+
+      case FRESH_RSS_SYNCS.STARRED_ENTRIES:
+        return this.runStarredEntries();
+
+      default:
+        await this.runSubscriptions();
+        await this.runStarredEntries();
+    }
   }
 
-  async runFollowingBlogs(): Promise<FreshRSSSubscription[]> {
-    const syncId = await this.syncs.start("freshrss_blogs");
+  private async runSubscriptions() {
+    const syncId = await this.repositories.syncs.start("freshrss_blogs");
+
+    this.progress.start("Fetching \"subscriptions\"...");
 
     try {
-      const blogs = await this.client.fetchFollowingBlogs();
+      const blogs = await this.client.fetchSubscriptions();
 
       let processed = 0;
 
       for (const blog of blogs) {
-        const normalized = this.normalizer.normalizeBlog(blog);
+        const normalized = this.normalizer.normalizeSubscription(blog);
 
-        const { entityId } = await this.entities.getOrCreateFromSource({
+        this.progress.update(`Processing ${normalized.title}`);
+
+        const { entityId } = await this.repositories.entities.getOrCreateFromSource({
           kind: normalized.kind,
           title: normalized.title,
           source: normalized.source,
           externalId: normalized.externalId,
         });
 
-        await this.metadata.upsert(entityId, normalized.metadata);
+        await this.repositories.metadata.upsert(entityId, normalized.metadata);
 
         processed++;
       }
 
-      await this.syncs.success(syncId, {
+      this.progress.success(`Processed ${processed} \"subscriptions\"`);
+
+      await this.repositories.syncs.success(syncId, {
         blogs_processed: processed,
       });
-
-      return blogs;
     }
     catch (e) {
-      await this.syncs.fail(syncId, e as Error);
+      this.progress.fail(`Sync failed for "subscriptions": ${(e as Error).message}`);
+
+      await this.repositories.syncs.fail(syncId, e as Error);
       throw e;
     }
   }
 
-  async runFavouriteBlogPosts(blogs: FreshRSSSubscription[]) {
-    const syncId = await this.syncs.start("freshrss_blog_posts");
+  private async runStarredEntries() {
+    const syncId = await this.repositories.syncs.start("freshrss_blog_posts");
+
+    this.progress.start("Fetching \"starred entries\"...");
 
     try {
+      const subscriptions = await this.client.fetchSubscriptions();
+
       const latestPostDateStr
-        = await this.entities.getLatestCreatedAt("post");
+        = await this.repositories.entities.getLatestCreatedAt("post");
 
       let updatedAfter: number | undefined;
 
@@ -72,29 +90,28 @@ export class FreshRSSSync {
         );
       }
 
-      const posts = await this.client.fetchFavouriteBlogPosts(
-        blogs,
-        updatedAfter,
-      );
+      const entries = await this.client.fetchStarredEntries(subscriptions, updatedAfter);
 
-      const blogMap = new Map(
-        blogs.map(b => [b.id, b.title]),
+      const subscriptionMap = new Map(
+        subscriptions.map(b => [b.id, b.title]),
       );
 
       let processed = 0;
 
-      for (const post of posts) {
-        const normalized = this.normalizer.normalizeBlogPost(post);
+      for (const entry of entries) {
+        const normalized = this.normalizer.normalizeEntry(entry);
+
+        this.progress.update(`Processing ${normalized.title}`);
 
         const { entityId: postEntityId }
-          = await this.entities.getOrCreateFromSource({
+          = await this.repositories.entities.getOrCreateFromSource({
             kind: normalized.kind,
             title: normalized.title,
             source: normalized.source,
             externalId: normalized.externalId,
           });
 
-        await this.metadata.upsert(
+        await this.repositories.metadata.upsert(
           postEntityId,
           normalized.metadata,
         );
@@ -102,18 +119,18 @@ export class FreshRSSSync {
         const blogExternalId = normalized.metadata.feedId;
 
         if (blogExternalId) {
-          const blogTitle = blogMap.get(blogExternalId);
+          const blogTitle = subscriptionMap.get(blogExternalId);
 
           if (blogExternalId && blogTitle) {
             const { entityId: blogEntityId }
-              = await this.entities.getOrCreateFromSource({
+              = await this.repositories.entities.getOrCreateFromSource({
                 kind: "blog",
                 title: blogTitle,
                 source: normalized.source,
                 externalId: blogExternalId,
               });
 
-            await this.relationships.createRelationship({
+            await this.repositories.relationships.createRelationship({
               parentId: blogEntityId,
               childId: postEntityId,
               type: "HAS_POST",
@@ -126,12 +143,16 @@ export class FreshRSSSync {
         processed++;
       }
 
-      await this.syncs.success(syncId, {
+      this.progress.success(`Processed ${processed} "entries"`);
+
+      await this.repositories.syncs.success(syncId, {
         blog_posts_processed: processed,
       });
     }
     catch (e) {
-      await this.syncs.fail(syncId, e as Error);
+      this.progress.fail(`Sync failed for "entries": ${(e as Error).message}`);
+
+      await this.repositories.syncs.fail(syncId, e as Error);
       throw e;
     }
   }

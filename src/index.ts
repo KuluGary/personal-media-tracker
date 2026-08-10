@@ -1,11 +1,15 @@
+import { AddCommand } from "./commands/AddCommand";
 import { DoctorCommand } from "./commands/DoctorCommand";
+import { EditCommand } from "./commands/EditCommand";
 import { InitCommand } from "./commands/InitCommand";
+import { RemoveCommand } from "./commands/RemoveCommand";
 import { SourcesCommand } from "./commands/SourcesCommand";
 import { SyncCommand } from "./commands/SyncCommand";
-import { loadConfig } from "./config/loadConfig";
+import { ConfigurationFile } from "./config/ConfigurationFile";
 import { DatabaseDoctor } from "./db/DatabaseDoctor";
-import { db } from "./db/supabase";
-import { createSourceRegistry } from "./sources/utils/SourceRegistry";
+import { DatabaseFactory } from "./db/DatabaseFactory";
+import { createSourceRegistry } from "./sources/SourceRegistry";
+import { logger } from "./utils/logger";
 
 async function main() {
   const command = process.argv[2];
@@ -13,37 +17,59 @@ async function main() {
   if (!command)
     throw new Error("Please add a command");
 
+  const configFile = new ConfigurationFile();
+
   const commands = {
-    init: () => new InitCommand(),
-    doctor: async () => {
-      const config = await loadConfig();
+    init: () => new InitCommand(configFile),
+    doctor: () => {
+      const config = configFile.load();
+      const db = new DatabaseFactory().create(config);
 
-      return new DoctorCommand(createSourceRegistry(config), new DatabaseDoctor(db));
+      return new DoctorCommand(createSourceRegistry(config, db), new DatabaseDoctor(db));
     },
-    sources: async () => {
-      const config = await loadConfig();
+    sources: () => {
+      const config = configFile.load();
+      const db = new DatabaseFactory().create(config);
 
-      return new SourcesCommand(createSourceRegistry(config));
+      return new SourcesCommand(createSourceRegistry(config, db));
     },
-    sync: async () => {
-      const config = await loadConfig();
+    sync: () => {
+      const config = configFile.load();
+      const db = new DatabaseFactory().create(config);
 
-      return new SyncCommand(createSourceRegistry(config));
+      return new SyncCommand(createSourceRegistry(config, db));
+    },
+    add: () => {
+      const config = configFile.load();
+      const db = new DatabaseFactory().create(config);
+
+      return new AddCommand(createSourceRegistry(config, db), configFile);
+    },
+    remove: () => {
+      const config = configFile.load();
+      const db = new DatabaseFactory().create(config);
+
+      return new RemoveCommand(createSourceRegistry(config, db), configFile);
+    },
+    edit: () => {
+      const config = configFile.load();
+      const db = new DatabaseFactory().create(config);
+
+      return new EditCommand(createSourceRegistry(config, db), configFile);
     },
   };
 
   const factory = commands[command as keyof typeof commands];
 
   if (!factory) {
-    console.error(`Unknown command: ${command}`);
+    logger.error(`Unknown command: ${command}`);
     process.exit(1);
   }
 
-  const handler = await factory();
-  await handler.run(process.argv.slice(3));
+  await factory().run(process.argv.slice(3));
 }
 
 main().catch((err) => {
-  console.error("Sync failed:", err);
+  logger.error((err as Error).message);
   process.exit(1);
 });

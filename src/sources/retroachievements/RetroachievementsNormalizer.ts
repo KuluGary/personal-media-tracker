@@ -1,6 +1,12 @@
 import type { RetroachievementsGameProgress, RetroachievementsNormalizedAchiement, RetroachievementsNormalizedGame, RetroachievementsUnlocksByDateRange } from "./types";
 
+/**
+ * Transforms Retroachievements API entities into canonical domain entities.
+ */
 export class RetroachievementsNormalizer {
+  /**
+   * Convers a Retroachievements game into the application's canonical game representation.
+   */
   normalizeGame(data: RetroachievementsGameProgress): RetroachievementsNormalizedGame {
     return {
       kind: "game",
@@ -25,6 +31,9 @@ export class RetroachievementsNormalizer {
     };
   }
 
+  /**
+   * Convers a Retroachievements achievement into the application's canonical achievement representation.
+   */
   normalizeAchievement(data: RetroachievementsUnlocksByDateRange): RetroachievementsNormalizedAchiement {
     return {
       kind: "achievement",

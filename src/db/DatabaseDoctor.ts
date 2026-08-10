@@ -1,9 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { Database } from "./types";
+import type { Database, TrackerDatabase } from "./types";
 
 export class DatabaseDoctor {
-  constructor(private readonly db: SupabaseClient<Database>) { }
+  constructor(private readonly db: TrackerDatabase) { }
 
   async check() {
     const { error } = await this.db

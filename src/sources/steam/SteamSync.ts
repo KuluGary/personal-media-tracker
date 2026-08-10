@@ -1,25 +1,50 @@
-import type { EntityRepository } from "@/repositories/EntityRepository";
-import type { MetadataRepository } from "@/repositories/MetadataRepository";
-import type { RelationshipRepository } from "@/repositories/RelationshipRepository";
-import type { SourceSyncRepository } from "@/repositories/SourceSyncRepository";
-import type { TimeRepository } from "@/repositories/TimeRepository";
+import type { Repositories } from "@/repositories/Repositories";
+import type { SyncProgressReporter } from "@/sync/SyncProgressReport";
+import type { SyncRequest } from "@/sync/SyncRequest";
 
 import type { SteamClient } from "./SteamClient";
 import type { SteamNormalizer } from "./SteamNormalizer";
 
+import { STEAM_SYNCS } from "./SteamSource";
+
+/**
+ * Synchronizes Steam data into the application's canonical data model.
+ *
+ * Retrieves data from Steam, normalizes it, persists entities and metadata
+ * and records the outcome of the synchronization
+ */
 export class SteamSync {
   constructor(
     private client: SteamClient,
     private normalizer: SteamNormalizer,
-    private entities: EntityRepository,
-    private metadata: MetadataRepository,
-    private relationships: RelationshipRepository,
-    private time: TimeRepository,
-    private syncs: SourceSyncRepository,
+    private repositories: Repositories,
+    private progress: SyncProgressReporter,
+    private request?: SyncRequest,
   ) { }
 
   async run() {
-    const syncId = await this.syncs.start("steam");
+    switch (this.request?.syncId) {
+      case STEAM_SYNCS.GAMES:
+        return this.runGames();
+
+      case STEAM_SYNCS.ACHIEVEMENTS:
+        return this.runAchievements();
+
+      default:
+        await this.runGames();
+        await this.runAchievements();
+    }
+  }
+
+  /**
+   * Syncrhonizes all data from the configured Steam user.
+   *
+   * Throws if the synchronization fails.
+   */
+  private async runGames() {
+    const syncId = await this.repositories.syncs.start("steam");
+
+    this.progress.start("Fetching \"games\"...");
 
     try {
       const games = await this.client.fetchOwnedGames();
@@ -29,78 +54,99 @@ export class SteamSync {
       for (const game of games) {
         const normalized = this.normalizer.normalizeGame(game);
 
-        const { entityId } = await this.entities.getOrCreateFromSource({
+        this.progress.update(`Fetching ${normalized.title}`);
+
+        const { entityId } = await this.repositories.entities.getOrCreateFromSource({
           kind: normalized.kind,
           title: normalized.title,
           source: normalized.source,
           externalId: normalized.externalId,
         });
 
-        await this.metadata.upsert(entityId, normalized.metadata);
-        await this.time.recordTotalTime({ entityId, totalSeconds: normalized.timeSeconds });
-
-        if (game.has_community_visible_stats) {
-          await this.runTopAchievements(game.appid);
-        }
+        await this.repositories.metadata.upsert(entityId, normalized.metadata);
+        await this.repositories.time?.recordTotalTime({ entityId, totalSeconds: normalized.timeSeconds });
 
         processed++;
       }
 
-      await this.syncs.success(syncId, {
+      this.progress.success(`Processed ${processed} "games"`);
+
+      await this.repositories.syncs.success(syncId, {
         games_processed: processed,
       });
     }
     catch (e) {
-      console.error(e);
-      await this.syncs.fail(syncId, e as Error);
+      this.progress.fail(`Sync failed for "games": ${(e as Error).message}`);
+
+      await this.repositories.syncs.fail(syncId, e as Error);
       throw e;
     }
   }
 
-  private async runTopAchievements(appid: number) {
-    const syncId = await this.syncs.start("steam_achievements");
+  /**
+   * Syncrhonizes all achievements from the configured Steam user.
+   *
+   * Throws if the synchronization fails.
+   */
+  private async runAchievements() {
+    const syncId = await this.repositories.syncs.start("steam_achievements");
+
+    this.progress.start("Fetching \"achievements\"...");
 
     try {
-      const achievements = await this.client.fetchUserAchievementsWithMetadata(appid);
+      const games = await this.client.fetchOwnedGames();
 
-      let processedAchievements = 0;
+      let processed = 0;
 
-      for (const achievement of achievements) {
-        const normalizedAchievement = this.normalizer.normalizeAchievement(achievement);
+      for (const game of games) {
+        if (!game.has_community_visible_stats)
+          continue;
 
-        const { entityId } = await this.entities.getOrCreateFromSource({
-          kind: "achievement",
-          title: normalizedAchievement.title,
-          source: "steam",
-          externalId: `${appid}-${normalizedAchievement.externalId}`,
-        });
+        const achievements = await this.client.fetchUserAchievementsWithMetadata(game.appid);
 
-        await this.metadata.upsert(entityId, normalizedAchievement.metadata);
+        for (const achievement of achievements) {
+          const normalized = this.normalizer.normalizeAchievement(achievement);
 
-        const res = await this.entities.getFromSource({
-          source: "steam",
-          externalId: String(appid),
-        });
+          this.progress.update(`Processing ${normalized.title}${game.name ? ` for game ${game.name}` : ""}`);
 
-        if (res?.entityId) {
-          await this.relationships.createRelationship({
-            parentId: res.entityId,
-            parentKind: "game",
-            childId: entityId,
-            childKind: "achievement",
-            type: "HAS_ACHIEVEMENT",
+          const { entityId } = await this.repositories.entities.getOrCreateFromSource({
+            kind: "achievement",
+            title: normalized.title,
+            source: "steam",
+            externalId: `${game.appid}-${normalized.externalId}`,
           });
-        }
 
-        processedAchievements++;
+          await this.repositories.metadata.upsert(entityId, normalized.metadata);
+
+          const res = await this.repositories.entities.getFromSource({
+            source: "steam",
+            externalId: String(game.appid),
+          });
+
+          if (res?.entityId) {
+            await this.repositories.relationships.createRelationship({
+              parentId: res.entityId,
+              parentKind: "game",
+              childId: entityId,
+              childKind: "achievement",
+              type: "HAS_ACHIEVEMENT",
+            });
+          }
+
+          processed++;
+        }
       }
 
-      await this.syncs.success(syncId, {
-        achievements_processed: processedAchievements,
+      this.progress.success(`Processed ${processed} "achievements"`);
+
+      await this.repositories.syncs.success(syncId, {
+        achievements_processed: processed,
       });
     }
     catch (e) {
-      await this.syncs.fail(syncId, e as Error);
+      this.progress.fail(`Sync failed for "achievements": ${(e as Error).message}`);
+
+      await this.repositories.syncs.fail(syncId, e as Error);
       throw e;
     }
   }

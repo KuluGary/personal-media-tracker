@@ -5,6 +5,9 @@ import type {
   FreshRSSSubscriptionListResponse,
 } from "./types";
 
+/**
+ * Provides methods to interact with the FreshRSS Web API for user and book data.
+ */
 export class FreshRSSClient {
   constructor(
     private userName: string,
@@ -12,11 +15,11 @@ export class FreshRSSClient {
   ) { }
 
   private base = "https://rss.32bit.cafe/api/greader.php";
-  private blogsLabel = "user/-/label/Blogs";
+  // private blogsLabel = "user/-/label/Blogs";
 
   private authToken?: string;
 
-  async fetchFollowingBlogs(): Promise<FreshRSSSubscription[]> {
+  async fetchSubscriptions(tag?: string): Promise<FreshRSSSubscription[]> {
     const auth = await this.getAuthToken();
 
     const url
@@ -37,12 +40,15 @@ export class FreshRSSClient {
 
     const subscriptions = json.subscriptions ?? [];
 
+    if (!tag)
+      return subscriptions;
+
     return subscriptions.filter(sub =>
-      sub.categories?.some(c => c.id === this.blogsLabel),
+      sub.categories?.some(c => c.id === tag),
     );
   }
 
-  async fetchFavouriteBlogPosts(
+  async fetchStarredEntries(
     blogs: FreshRSSSubscription[],
     updatedAfter?: number,
   ): Promise<FreshRSSItem[]> {
@@ -123,5 +129,9 @@ export class FreshRSSClient {
     this.authToken = match[1]?.trim();
 
     return this.authToken ?? "";
+  }
+
+  async validate() {
+    await this.getAuthToken();
   }
 }

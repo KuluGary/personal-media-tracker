@@ -107,3 +107,12 @@ export interface SteamUserAchievementWithMetadata extends SteamPlayerAchievement
   iconGray: string | null;
   hidden: boolean;
 }
+
+export interface SteamPlayerSummariesResponse {
+  response: {
+    players: {
+      steamid: string;
+      personaname: string;
+    }[];
+  };
+}

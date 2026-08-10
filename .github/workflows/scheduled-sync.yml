@@ -18,8 +18,12 @@ jobs:
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       YOUTUBE_PLAYLIST_ID: ${{ secrets.YOUTUBE_PLAYLIST_ID }}
+      FRESHRSS_USER_NAME: ${{ secrets.FRESHRSS_USER_NAME }}
+      FRESHRSS_API_PASSWORD: ${{ secrets.FRESHRSS_API_PASSWORD }}
+      PAGEBOUND_USER_ID: ${{ secrets.PAGEBOUND_USER_ID }}
+      TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
+      TUMBLR_BLOG_IDENTIFIER: ${{ secrets.TUMBLR_BLOG_IDENTIFIER }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,14 +39,60 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
+      - name: Initialize Tracker
+        run: |
+          npm start -- init \
+            --url "$SUPABASE_URL" \
+            --service-key "$SUPABASE_SERVICE_KEY"
+
+      - name: Configure Steam
+        run: |
+          npm start -- add steam \
+            --api-key "$STEAM_API_KEY" \
+            --steam-id "$STEAM_ID"
+
+      - name: Configure RetroAchievements
+        run: |
+          npm start -- add retroachievements \
+            --api-key "$RETROACHIEVEMENTS_API_KEY" \
+            --user-id "$RETROACHIEVEMENTS_USER_ID"
+
+      - name: Configure YouTube
+        run: |
+          npm start -- add youtube \
+            --api-key "$YOUTUBE_API_KEY"
+
+      - name: Configure Tumblr
+        run: |
+          npm start -- add tumblr \
+            --api-key "$TUMBLR_API_KEY" \
+            --blog "$TUMBLR_BLOG"
+
+      - name: Configure FreshRSS
+        run: |
+          npm start -- add freshrss \
+            --api-password "$FRESHRSS_API_PASSWORD" \
+            --user-name "$FRESHRSS_USER_NAME"
+
+      - name: Configure Pagebound
+        run: |
+          npm start -- add pagebound \
+            --user-id "$PAGEBOUND_USER_ID"
+
       - name: Run Steam sync
-        run: npm start -- steam
+        run: npm start -- sync steam
 
       - name: Run RetroAchievements sync
-        run: npm start -- retroachievements
+        run: npm start -- sync retroachievements
 
       - name: Run YouTube sync
-        run: npm start -- youtube
+        run: npm start -- sync youtube playlist-items --playlist "$YOUTUBE_PLAYLIST_ID"
+
+      - name: Run FreshRSS sync
+        run: npm start -- sync freshrss
+
+      - name: Run Pagebound sync
+        run: npm start -- sync pagebound
 
       - name: Run Tumblr sync
-        run: npm start -- tumblr
+        run: npm start -- sync tumblr
