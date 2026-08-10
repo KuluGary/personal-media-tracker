@@ -1,13 +1,9 @@
-import { Client } from "tumblr.js";
-
 import type { TumblrBlogInfoResponse, TumblrPost } from "./types";
 
 /**
  * Provides methods to interact with the Tumblr Web API for user and blog data.
  */
 export class TumblrClient {
-  private readonly client: Client;
-
   /**
    * Creates a new Tumblr API client.
    * @param consumerKey Tumblr API consumer key.
@@ -16,34 +12,55 @@ export class TumblrClient {
   constructor(
     private consumerKey: string,
     private blogIdentifier: string,
-  ) {
-    this.client = new Client({
-      consumer_key: this.consumerKey,
-    });
-  }
+  ) { }
 
   /**
    * Fetches all text posts from the configured blog.
    * Internally paginates through the Tumblr API until all posts have been retrieved.
    */
-  async fetchBlogPosts(): Promise<TumblrPost[]> {
+  async fetchBlogPosts(tag?: string): Promise<TumblrPost[]> {
     const limit = 20;
     let offset = 0;
 
     const allPosts: TumblrPost[] = [];
 
     while (true) {
-      const response = await this.client.blogPosts(this.blogIdentifier, {
+      const params = new URLSearchParams({
+        api_key: this.consumerKey,
         type: "text",
-        limit,
-        offset,
+        limit: String(limit),
+        offset: String(offset),
       });
 
-      allPosts.push(...response.posts);
+      const response = await fetch(
+        `https://api.tumblr.com/v2/blog/${this.blogIdentifier}/posts?${params}`,
+      );
 
-      offset += response.posts.length;
+      if (!response.ok) {
+        throw new Error(`Tumblr API error: ${response.status}`);
+      }
 
-      if (offset >= response.total_posts) {
+      const json = await response.json() as {
+        response: {
+          posts: TumblrPost[];
+          total_posts: number;
+        };
+      };
+
+      const fetchedPosts = json.response.posts;
+
+      const posts = tag
+        ? fetchedPosts.filter(post => post.tags?.includes(tag))
+        : fetchedPosts;
+
+      allPosts.push(...posts);
+
+      offset += fetchedPosts.length;
+
+      if (
+        offset >= json.response.total_posts
+        || fetchedPosts.length === 0
+      ) {
         break;
       }
     }

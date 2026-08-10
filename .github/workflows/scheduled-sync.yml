@@ -25,6 +25,7 @@ jobs:
       PAGEBOUND_USER_ID: ${{ secrets.PAGEBOUND_USER_ID }}
       TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
       TUMBLR_BLOG_IDENTIFIER: ${{ secrets.TUMBLR_BLOG_IDENTIFIER }}
+      HOWLONGTOBEAT_USER_ID: ${{ secrets.HOWLONGTOBEAT_USER_ID }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -80,11 +81,19 @@ jobs:
           npm start -- add pagebound \
             --user-id "$PAGEBOUND_USER_ID"
 
+      - name: Configure How Long To Beat
+        run: |
+          npm start -- add howlongtobeat \
+            --user-id "$HOWLONGTOBEAT_USER_ID"
+
       - name: Run Steam sync
-        run: npm start -- sync steam
+        run: npm start -- sync steam games
 
       - name: Run RetroAchievements sync
-        run: npm start -- sync retroachievements
+        run: npm start -- sync retroachievements games
+
+      - name: Run How Long To Beat sync
+        run: npm start -- sync howlongtobeat
 
       - name: Run YouTube sync
         run: npm start -- sync youtube playlist-items --playlist "$YOUTUBE_PLAYLIST_ID"

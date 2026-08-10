@@ -31,7 +31,7 @@ export class TumblrSync {
     this.progress.start("Fetching \"posts\"...");
 
     try {
-      const posts = await this.client.fetchBlogPosts();
+      const posts = await this.client.fetchBlogPosts(this.request?.params?.tag);
 
       let processed = 0;
 

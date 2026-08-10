@@ -5,7 +5,5 @@ export interface SyncRequest {
   from?: Date;
   to?: Date;
 
-  tag?: string;
-
   params?: Record<string, string>;
 }
